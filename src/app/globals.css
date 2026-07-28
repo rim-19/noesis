@@ -1,0 +1,136 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+/* ============================================================
+   CALLIA — "Garden at dusk" design tokens
+   ============================================================ */
+:root {
+  /* Palette */
+  --dusk-ink: #161d2e;      /* background, deep dusk-blue-black */
+  --dusk-ink-2: #1c2437;    /* raised surfaces */
+  --dusk-ink-3: #222c44;    /* panels / overlays */
+  --moss: #3f6b4f;          /* bloomed / verified — primary accent */
+  --moss-bright: #4f8763;   /* bloom highlight */
+  --sprout: #8bb08a;        /* in-progress — secondary accent */
+  --seed-gray: #4a5568;     /* unverified / muted */
+  --firefly-gold: #f2c464;  /* the companion's glow, CTA — used sparingly */
+  --moonlight: #e8ecf1;     /* primary text on dark */
+  --moonlight-dim: #a6b0c2; /* secondary text */
+  --moonlight-faint: #6b7689; /* tertiary / mono data */
+
+  /* Feminine bloom accents — dusk-flower hues, catchy but never neon */
+  --blush: #e78fb3;         /* rose — bloomed flower petals, primary feminine accent */
+  --petal: #f6a5cb;         /* bright petal pink — highlights, particles */
+  --wisteria: #b89ce6;      /* soft lavender — a second bloom hue, accents */
+
+  /* Fonts (bound in layout.tsx via next/font) */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+@theme inline {
+  --color-dusk-ink: var(--dusk-ink);
+  --color-dusk-ink-2: var(--dusk-ink-2);
+  --color-dusk-ink-3: var(--dusk-ink-3);
+  --color-moss: var(--moss);
+  --color-moss-bright: var(--moss-bright);
+  --color-sprout: var(--sprout);
+  --color-seed-gray: var(--seed-gray);
+  --color-firefly-gold: var(--firefly-gold);
+  --color-moonlight: var(--moonlight);
+  --color-moonlight-dim: var(--moonlight-dim);
+  --color-moonlight-faint: var(--moonlight-faint);
+  --color-blush: var(--blush);
+  --color-petal: var(--petal);
+  --color-wisteria: var(--wisteria);
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-body: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--dusk-ink);
+  color: var(--moonlight);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* A faint dusk vignette so the garden feels lit from within */
+.dusk-field {
+  background:
+    radial-gradient(120% 90% at 50% 8%, rgba(60, 82, 120, 0.22) 0%, transparent 55%),
+    radial-gradient(90% 70% at 82% 92%, rgba(63, 107, 79, 0.14) 0%, transparent 60%),
+    var(--dusk-ink);
+}
+
+.font-display { font-family: var(--font-display); }
+.font-body { font-family: var(--font-body); }
+.font-mono { font-family: var(--font-mono); }
+
+/* Companion's spoken lines / display copy: warm serif, generous tracking */
+.spoken {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+  line-height: 1.5;
+}
+
+/* Small data texture */
+.data {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  color: var(--moonlight-faint);
+}
+
+/* Translucent slide-in panel surface */
+.panel-glass {
+  background: color-mix(in srgb, var(--dusk-ink-3) 82%, transparent);
+  backdrop-filter: blur(18px) saturate(1.1);
+  -webkit-backdrop-filter: blur(18px) saturate(1.1);
+  border-left: 1px solid rgba(232, 236, 241, 0.08);
+}
+
+/* Scrollbars, quiet */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(232, 236, 241, 0.14) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(232, 236, 241, 0.14);
+  border-radius: 999px;
+}
+
+/* react-flow surface: let our dusk field show through */
+.react-flow,
+.react-flow__renderer,
+.react-flow__pane {
+  background: transparent !important;
+}
+.react-flow__attribution { display: none !important; }
+.react-flow__node { cursor: pointer; }
+
+/* Focus ring in-keeping with the palette */
+:where(button, a, input, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--firefly-gold) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Reduced motion: silence the ambient life */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
