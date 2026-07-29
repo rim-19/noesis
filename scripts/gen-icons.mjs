@@ -1,6 +1,7 @@
-// One-off: rasterize the Noesis flower into PWA PNG icons.
+// One-off: rasterize the Noesis flower into PWA PNG icons + the browser favicon.
 // Run with: node scripts/gen-icons.mjs
 import sharp from "sharp";
+import pngToIco from "png-to-ico";
 import { writeFile } from "node:fs/promises";
 
 const flower = (cx, cy, scale) => `
@@ -55,3 +56,16 @@ for (const [name, svg] of jobs) {
   await writeFile(new URL(`../public/${name}`, import.meta.url), png);
   console.log("wrote public/" + name, png.length + "b");
 }
+
+// Browser-tab favicon: a multi-size .ico (16/32/48) from the rounded flower,
+// plus an SVG icon for crisp rendering. These live in src/app/ so Next serves
+// them as the site favicon.
+const faviconPngs = await Promise.all(
+  [16, 32, 48].map((s) => sharp(Buffer.from(rounded(s * 4))).resize(s, s).png().toBuffer())
+);
+const ico = await pngToIco(faviconPngs);
+await writeFile(new URL("../src/app/favicon.ico", import.meta.url), ico);
+console.log("wrote src/app/favicon.ico", ico.length + "b");
+
+await writeFile(new URL("../src/app/icon.svg", import.meta.url), rounded(64));
+console.log("wrote src/app/icon.svg");
