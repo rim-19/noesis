@@ -10,17 +10,19 @@ export async function POST(req: Request) {
     const userId = await getUserId();
     const body = await req.json().catch(() => ({}));
     const goal = String(body.goal ?? "").trim();
+    const surprise = !!body.surprise;
+    const seed = body.seed ? String(body.seed) : undefined;
     const sourceUrl = body.sourceUrl ? String(body.sourceUrl).trim() : undefined;
     const source =
       body.source && typeof body.source.text === "string" && body.source.text.trim()
         ? { name: String(body.source.name ?? "your file"), text: String(body.source.text) }
         : undefined;
 
-    if (!goal) {
+    if (!goal && !surprise) {
       return NextResponse.json({ error: "Tell me what you want to learn first." }, { status: 400 });
     }
 
-    const { garden, subjectId } = await generateSubject(userId, goal, sourceUrl, source);
+    const { garden, subjectId } = await generateSubject(userId, goal, { sourceUrl, source, surprise, seed });
     return NextResponse.json({ garden, subjectId });
   } catch (err) {
     console.error("[/api/garden/generate]", err);

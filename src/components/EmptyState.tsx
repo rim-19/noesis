@@ -13,9 +13,11 @@ import { GrowthStage } from "./GrowthStage";
 export function EmptyState({
   busy,
   onSubmit,
+  onSurprise,
 }: {
   busy: boolean;
   onSubmit: (goal: string, opts?: { sourceUrl?: string; source?: { name: string; text: string } }) => void;
+  onSurprise: () => void;
 }) {
   return (
     <div className="dusk-field relative grid min-h-dvh place-items-center overflow-hidden px-6 py-16">
@@ -33,6 +35,18 @@ export function EmptyState({
         </p>
 
         <GoalComposer variant="hero" busy={busy} onSubmit={onSubmit} />
+
+        <div className="mt-4 flex items-center gap-3">
+          <span className="data">not sure what to learn?</span>
+          <button
+            onClick={onSurprise}
+            disabled={busy}
+            className="rounded-full px-4 py-1.5 text-sm font-display transition-transform active:scale-95 disabled:opacity-40"
+            style={{ background: "rgba(245,205,118,0.14)", border: "1px solid rgba(245,205,118,0.4)", color: "var(--firefly-gold)" }}
+          >
+            🎲 Surprise me
+          </button>
+        </div>
 
         {/* how it works */}
         <div className="mt-12 grid w-full grid-cols-3 gap-3 text-center">

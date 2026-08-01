@@ -88,52 +88,65 @@ interface GeneratedNode {
   prerequisites: string[];
 }
 
-const GRAPH_SYSTEM = `You are Noesis's curriculum planner. Turn a learning goal into a SMALL, well-ordered dependency graph of concepts to LEARN.
+const GRAPH_SYSTEM = `You are Noesis's curriculum planner. Turn a learning goal into a DETAILED, well-organized dependency graph of concepts to LEARN — a real syllabus, start to finish.
 
 Rules:
-- Return 4 to 7 nodes. Not a huge tree — it grows over time.
-- Order by dependency: a node lists the "key"s of concepts that must be understood first.
-- The LAST node should be the goal itself; earlier nodes are the building blocks.
-- Each node: a short "topic" (2-5 words), and a one-sentence "concept_summary" of what will be taught there.
-- Cover the real backbone a good teacher would sequence — foundations first, no gaps, no filler.
+- Return 8 to 14 nodes — a thorough curriculum, not a sketch. Cover the subject comprehensively: foundations, core ideas, key sub-topics, nuances, and the advanced/culminating concepts. Leave no major gap between "knowing nothing" and "understanding it deeply".
+- Order by dependency: each node lists the "key"s of concepts that must be understood first. Use real branching where a concept has multiple prerequisites — not just one long chain.
+- Early nodes are foundations; later nodes build toward mastery of the whole subject.
+- Each node: a specific "topic" (2-6 words) and a one-sentence "concept_summary" of exactly what is taught there. Make topics concrete and distinct, not vague.
+- Sequence it like an expert teacher designing a complete course.
+- You handle ANY field seriously and academically — science, art, history, philosophy, literature, crafts, culture, and mature or sensitive intellectual subjects (e.g. themes in philosophy, psychology, or art history). Treat every subject with scholarly depth and respect; never refuse a legitimate topic.
 
 Return STRICT JSON only:
-{"subject_title":"short title for this whole topic","nodes":[{"key":"snake_case_id","topic":"...","concept_summary":"...","prerequisites":["other_key"]}]}`;
+{"subject_title":"clear title for this whole subject","nodes":[{"key":"snake_case_id","topic":"...","concept_summary":"...","prerequisites":["other_key"]}]}`;
+
+const SURPRISE_SYSTEM = `You are Noesis's curriculum planner. The learner is curious but doesn't know what to study, so YOU choose a genuinely interesting subject for them — from ANY field (science, history, art, philosophy, music, nature, engineering, language, culture, a niche craft or phenomenon — anything). Pick something specific and fascinating, not generic. Vary widely; surprise them.
+
+Then build a DETAILED, well-organized dependency graph of 8 to 14 concepts to learn it start to finish, exactly per these rules:
+- Order by dependency; each node lists prerequisite "key"s. Use real branching, not one long chain.
+- Foundations first, building toward deep mastery; concrete, distinct topics with a one-sentence summary each.
+- Design it like a complete course an expert would teach.
+
+Return STRICT JSON only:
+{"subject_title":"the subject you chose","nodes":[{"key":"snake_case_id","topic":"...","concept_summary":"...","prerequisites":["other_key"]}]}`;
 
 export async function generateSubject(
   userId: string,
   goal: string,
-  sourceUrl?: string,
-  source?: { name: string; text: string }
+  opts?: { sourceUrl?: string; source?: { name: string; text: string }; surprise?: boolean; seed?: string }
 ): Promise<{ garden: Garden; subjectId: string; provider: string }> {
-  const parts = [`Learning goal: "${goal.trim()}"`];
-  if (sourceUrl?.trim()) {
-    parts.push(`Shape the path around this source the learner chose (fill only genuine gaps): ${sourceUrl.trim()}`);
-  }
-  if (source?.text?.trim()) {
-    parts.push(
-      `The learner uploaded "${source.name}". Use its structure as the backbone; add prerequisite nodes only where a beginner would be missing something.\n\n--- SOURCE (may be truncated) ---\n${source.text.trim()}\n--- END ---`
-    );
+  const { sourceUrl, source, surprise, seed } = opts ?? {};
+  let messages: ChatMessage[];
+
+  if (surprise) {
+    messages = [
+      { role: "system", content: SURPRISE_SYSTEM },
+      { role: "user", content: `Choose a surprising subject and build its curriculum. Randomizer (use it to pick something different): ${seed ?? "x"}. Do not pick anything obvious or repeat common defaults.` },
+    ];
+  } else {
+    const parts = [`Learning goal: "${goal.trim()}"`];
+    if (sourceUrl?.trim()) {
+      parts.push(`Shape the path around this source the learner chose (fill only genuine gaps): ${sourceUrl.trim()}`);
+    }
+    if (source?.text?.trim()) {
+      parts.push(
+        `The learner uploaded "${source.name}". Use its structure as the backbone; add prerequisite nodes only where a beginner would be missing something.\n\n--- SOURCE (may be truncated) ---\n${source.text.trim()}\n--- END ---`
+      );
+    }
+    messages = [
+      { role: "system", content: GRAPH_SYSTEM },
+      { role: "user", content: parts.join("\n") },
+    ];
   }
 
-  const messages: ChatMessage[] = [
-    { role: "system", content: GRAPH_SYSTEM },
-    { role: "user", content: parts.join("\n") },
-  ];
-
-  const { text, provider } = await generate({ messages, json: true, temperature: 0.5, maxTokens: 1400 });
+  const { text, provider } = await generate({ messages, json: true, temperature: surprise ? 1.0 : 0.6, maxTokens: 3500 });
   const parsed = parseJsonObject<{ subject_title?: string; nodes: GeneratedNode[] }>(text);
-  const generated = (parsed.nodes ?? []).slice(0, 7);
+  const generated = (parsed.nodes ?? []).slice(0, 14);
   if (generated.length === 0) throw new Error("The planner returned an empty path");
 
-  const subjectId = await persistSubject(
-    userId,
-    parsed.subject_title?.trim() || goal.trim(),
-    goal.trim(),
-    generated,
-    sourceUrl,
-    source
-  );
+  const title = parsed.subject_title?.trim() || goal.trim() || "A surprise subject";
+  const subjectId = await persistSubject(userId, title, goal.trim() || title, generated, sourceUrl, source);
   await relayout(userId);
   return { garden: await loadGarden(userId), subjectId, provider };
 }

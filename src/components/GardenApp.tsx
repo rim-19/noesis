@@ -108,6 +108,25 @@ export function GardenApp() {
     [flash]
   );
 
+  const surpriseMe = useCallback(async () => {
+    setGenerating(true);
+    try {
+      const seed = `${Math.random().toString(36).slice(2)}-${Math.floor(Math.random() * 1e9)}`;
+      const res = await fetch("/api/garden/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ surprise: true, seed }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "generation failed");
+      setGarden(data.garden as Garden);
+    } catch (e) {
+      flash((e as Error).message || "Couldn't pick something. Try again.");
+    } finally {
+      setGenerating(false);
+    }
+  }, [flash]);
+
   const select = useCallback((id: string | null) => {
     setSelectedId(id);
     setPanel(id ? "node" : "none");
@@ -166,7 +185,7 @@ export function GardenApp() {
   }
 
   const empty = !garden || garden.nodes.length === 0;
-  if (empty) return <EmptyState busy={generating} onSubmit={generate} />;
+  if (empty) return <EmptyState busy={generating} onSubmit={generate} onSurprise={surpriseMe} />;
 
   return (
     <div className="relative h-dvh w-full overflow-hidden dusk-field">
@@ -180,9 +199,14 @@ export function GardenApp() {
         <div className="pointer-events-auto w-[min(22rem,72vw)]">
           <GoalComposer variant="compact" busy={generating} onSubmit={generate} />
         </div>
-        <button onClick={() => setPanel("settings")} className="pointer-events-auto grid h-10 w-10 shrink-0 place-items-center rounded-full text-moonlight-dim transition-colors hover:text-moonlight" style={{ background: "color-mix(in srgb, var(--dusk-ink-2) 80%, transparent)", border: "1px solid var(--dusk-line)" }} aria-label="Settings">
-          <GearIcon />
-        </button>
+        <div className="pointer-events-auto flex items-center gap-2">
+          <button onClick={surpriseMe} disabled={generating} title="Surprise me — pick any subject" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg transition-colors hover:text-moonlight disabled:opacity-40" style={{ background: "color-mix(in srgb, var(--dusk-ink-2) 80%, transparent)", border: "1px solid var(--dusk-line)" }} aria-label="Surprise me">
+            🎲
+          </button>
+          <button onClick={() => setPanel("settings")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-moonlight-dim transition-colors hover:text-moonlight" style={{ background: "color-mix(in srgb, var(--dusk-ink-2) 80%, transparent)", border: "1px solid var(--dusk-line)" }} aria-label="Settings">
+            <GearIcon />
+          </button>
+        </div>
       </div>
 
       {generating && (

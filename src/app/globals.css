@@ -5,24 +5,24 @@
    CALLIA — "Garden at dusk" design tokens
    ============================================================ */
 :root {
-  /* Palette — dusk, but lifted well off black for readable, comfortable study */
-  --dusk-ink: #232c44;      /* app background, a lighter dusk indigo */
-  --dusk-ink-2: #2c3654;    /* raised surfaces / cards */
-  --dusk-ink-3: #333e60;    /* panels / overlays */
-  --dusk-line: #465179;     /* borders / hairlines, actually visible */
-  --moss: #5b9b73;          /* growth — primary green accent */
-  --moss-bright: #6fb98c;   /* bloom highlight */
-  --sprout: #a7cfa6;        /* in-progress — secondary accent */
-  --seed-gray: #7a86a6;     /* unverified / muted (lightened for contrast) */
+  /* Palette — warm dusk (charcoal-plum, not blue), readable and comfortable */
+  --dusk-ink: #29252f;      /* app background, warm dark charcoal-plum */
+  --dusk-ink-2: #332e3c;    /* raised surfaces / cards */
+  --dusk-ink-3: #3c3646;    /* panels / overlays */
+  --dusk-line: #554d61;     /* borders / hairlines, actually visible */
+  --moss: #5faa78;          /* growth — primary green accent */
+  --moss-bright: #74c492;   /* bloom highlight */
+  --sprout: #a9d3a4;        /* in-progress — secondary accent */
+  --seed-gray: #8b8397;     /* unverified / muted (warm grey) */
   --firefly-gold: #f5cd76;  /* companion glow, CTA */
-  --moonlight: #f4f7fb;     /* primary text — near white, high contrast */
-  --moonlight-dim: #c4ccdd; /* secondary text (AA on the surfaces above) */
-  --moonlight-faint: #97a1bb; /* tertiary / mono data */
+  --moonlight: #f6f3f8;     /* primary text — warm near-white, high contrast */
+  --moonlight-dim: #cec7d6; /* secondary text (AA on the surfaces above) */
+  --moonlight-faint: #9d95a8; /* tertiary / mono data */
 
-  /* Feminine bloom accents — dusk-flower hues */
-  --blush: #ef9dbf;         /* rose — bloomed petals, primary feminine accent */
+  /* Bloom accents — dusk-flower hues */
+  --blush: #ef9dbf;         /* rose — bloomed petals, primary accent */
   --petal: #f7b3d3;         /* bright petal pink — highlights, particles */
-  --wisteria: #c3aef0;      /* soft lavender — second bloom hue, accents */
+  --wisteria: #c9a9ee;      /* soft lavender — second bloom hue, accents */
 
   /* Fonts (bound in layout.tsx via next/font) */
   --font-display: var(--font-fraunces), Georgia, serif;
@@ -64,11 +64,12 @@ body {
   overscroll-behavior: none;
 }
 
-/* A soft dusk glow so the garden feels lit from within (lighter now) */
+/* A warm dusk glow so the garden feels lit from within */
 .dusk-field {
   background:
-    radial-gradient(120% 90% at 50% 6%, rgba(120, 140, 190, 0.20) 0%, transparent 55%),
-    radial-gradient(90% 70% at 82% 94%, rgba(91, 155, 115, 0.14) 0%, transparent 60%),
+    radial-gradient(120% 90% at 50% 6%, rgba(245, 205, 118, 0.10) 0%, transparent 55%),
+    radial-gradient(90% 70% at 82% 94%, rgba(95, 170, 120, 0.13) 0%, transparent 60%),
+    radial-gradient(80% 60% at 12% 20%, rgba(239, 157, 191, 0.08) 0%, transparent 55%),
     var(--dusk-ink);
 }
 
