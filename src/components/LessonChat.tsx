@@ -154,7 +154,7 @@ export function LessonChat({
             m.role === "tutor" ? (
               <div key={m.id} className="group flex max-w-[94%] items-start gap-2 self-start">
                 <div className="rounded-2xl rounded-tl-sm px-4 py-3" style={{ background: "var(--dusk-ink-2)", border: "1px solid var(--dusk-line)" }}>
-                  <div className="tutor-md"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
+                  <div className="tutor-md" dir="auto"><ReactMarkdown remarkPlugins={[remarkGfm]}>{m.content}</ReactMarkdown></div>
                 </div>
                 <button
                   onClick={() => toggleSpeak(m)}
@@ -171,7 +171,7 @@ export function LessonChat({
                 </button>
               </div>
             ) : (
-              <div key={m.id} className="max-w-[85%] self-end rounded-2xl rounded-tr-sm px-4 py-2.5 text-[15px]" style={{ background: "var(--moss)", color: "var(--moonlight)" }}>
+              <div key={m.id} dir="auto" className="max-w-[85%] self-end rounded-2xl rounded-tr-sm px-4 py-2.5 text-[15px]" style={{ background: "var(--moss)", color: "var(--moonlight)" }}>
                 {m.content}
               </div>
             )
@@ -191,6 +191,7 @@ export function LessonChat({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submitTyped(); } }}
             rows={1}
+            dir="auto"
             placeholder={listening ? "listening…" : transcribing ? "hearing you…" : "Ask anything, or explain it back…"}
             className="max-h-32 min-h-[44px] flex-1 resize-none rounded-2xl px-4 py-2.5 text-[15px] outline-none placeholder:text-moonlight-faint"
             style={{ background: "var(--dusk-ink-2)", border: "1px solid var(--dusk-line)", color: "var(--moonlight)" }}

@@ -42,6 +42,7 @@ export interface Subject {
   id: string;
   title: string;
   goal: string;
+  language: string; // "" = follow the learner's own language
   created_at: number;
 }
 

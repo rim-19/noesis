@@ -12,6 +12,7 @@ export async function POST(req: Request) {
     const goal = String(body.goal ?? "").trim();
     const surprise = !!body.surprise;
     const seed = body.seed ? String(body.seed) : undefined;
+    const language = body.language ? String(body.language).slice(0, 40) : undefined;
     const sourceUrl = body.sourceUrl ? String(body.sourceUrl).trim() : undefined;
     const source =
       body.source && typeof body.source.text === "string" && body.source.text.trim()
@@ -22,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Tell me what you want to learn first." }, { status: 400 });
     }
 
-    const { garden, subjectId } = await generateSubject(userId, goal, { sourceUrl, source, surprise, seed });
+    const { garden, subjectId } = await generateSubject(userId, goal, { sourceUrl, source, surprise, seed, language });
     return NextResponse.json({ garden, subjectId });
   } catch (err) {
     console.error("[/api/garden/generate]", err);

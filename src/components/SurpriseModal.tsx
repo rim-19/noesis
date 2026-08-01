@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
+const LANGUAGES = ["English", "Arabic", "French", "Spanish", "German", "Portuguese", "Italian", "Turkish", "Hindi", "Chinese", "Japanese"];
 
 /**
  * Small explainer window for "Surprise me" — describes what it does, then a
@@ -15,9 +17,10 @@ export function SurpriseModal({
 }: {
   open: boolean;
   busy: boolean;
-  onPick: () => void;
+  onPick: (language: string) => void;
   onClose: () => void;
 }) {
+  const [language, setLanguage] = useState("English");
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape" && !busy) onClose(); };
     window.addEventListener("keydown", onKey);
@@ -47,14 +50,29 @@ export function SurpriseModal({
             >
               <div className="mb-3 text-4xl">🎲</div>
               <h2 className="spoken mb-2 text-xl text-moonlight">Surprise me</h2>
-              <p className="mb-6 text-sm leading-relaxed text-moonlight-dim">
+              <p className="mb-5 text-sm leading-relaxed text-moonlight-dim">
                 Not sure what to learn? I&apos;ll pick a genuinely interesting subject from <em>any</em> field —
                 science, art, history, a niche craft, a strange phenomenon — and grow you a full course to
                 learn it from scratch.
               </p>
 
+              <label className="mb-5 flex items-center justify-between gap-3 text-left">
+                <span className="text-sm text-moonlight-dim">Teach me in</span>
+                <select
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                  disabled={busy}
+                  className="rounded-lg px-3 py-2 text-sm outline-none"
+                  style={{ background: "var(--dusk-ink-3)", border: "1px solid var(--dusk-line)", color: "var(--moonlight)" }}
+                >
+                  {LANGUAGES.map((l) => (
+                    <option key={l} value={l} style={{ background: "var(--dusk-ink-3)" }}>{l}</option>
+                  ))}
+                </select>
+              </label>
+
               <button
-                onClick={onPick}
+                onClick={() => onPick(language)}
                 disabled={busy}
                 className="w-full rounded-full py-3 font-display text-[15px] transition-transform active:scale-[0.98] disabled:opacity-70"
                 style={{ background: "var(--firefly-gold)", color: "var(--dusk-ink)" }}

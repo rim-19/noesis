@@ -47,6 +47,7 @@ export async function loadGarden(userId: string): Promise<Garden> {
     id: String(s.id),
     title: String(s.title),
     goal: String(s.goal),
+    language: String(s.language ?? ""),
     created_at: Number(s.created_at),
   }));
 
@@ -114,15 +115,17 @@ Return STRICT JSON only:
 export async function generateSubject(
   userId: string,
   goal: string,
-  opts?: { sourceUrl?: string; source?: { name: string; text: string }; surprise?: boolean; seed?: string }
+  opts?: { sourceUrl?: string; source?: { name: string; text: string }; surprise?: boolean; seed?: string; language?: string }
 ): Promise<{ garden: Garden; subjectId: string; provider: string }> {
   const { sourceUrl, source, surprise, seed } = opts ?? {};
+  const language = (opts?.language ?? "").trim();
+  const langLine = language ? `\n\nWrite EVERYTHING (the subject title, every topic, and every summary) in ${language}.` : "";
   let messages: ChatMessage[];
 
   if (surprise) {
     messages = [
       { role: "system", content: SURPRISE_SYSTEM },
-      { role: "user", content: `Choose a surprising subject and build its curriculum. Randomizer (use it to pick something different): ${seed ?? "x"}. Do not pick anything obvious or repeat common defaults.` },
+      { role: "user", content: `Choose a surprising subject and build its curriculum. Randomizer (use it to pick something different): ${seed ?? "x"}. Do not pick anything obvious or repeat common defaults.${langLine}` },
     ];
   } else {
     const parts = [`Learning goal: "${goal.trim()}"`];
@@ -136,17 +139,34 @@ export async function generateSubject(
     }
     messages = [
       { role: "system", content: GRAPH_SYSTEM },
-      { role: "user", content: parts.join("\n") },
+      { role: "user", content: parts.join("\n") + langLine },
     ];
   }
 
-  const { text, provider } = await generate({ messages, json: true, temperature: surprise ? 0.85 : 0.5, maxTokens: 2200 });
-  const parsed = parseJsonObject<{ subject_title?: string; nodes: GeneratedNode[] }>(text);
-  const generated = (parsed.nodes ?? []).slice(0, 12);
-  if (generated.length === 0) throw new Error("The planner returned an empty path");
+  // Retry generation if the model returns unparseable JSON (common with
+  // non-Latin content on free models).
+  let generated: GeneratedNode[] = [];
+  let parsedTitle = "";
+  let provider = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const r = await generate({ messages, json: true, temperature: surprise ? 0.85 : 0.5, maxTokens: 2200 });
+      provider = r.provider;
+      const parsed = parseJsonObject<{ subject_title?: string; nodes: GeneratedNode[] }>(r.text);
+      const g = (parsed.nodes ?? []).slice(0, 12);
+      if (g.length > 0) {
+        generated = g;
+        parsedTitle = parsed.subject_title?.trim() ?? "";
+        break;
+      }
+    } catch (err) {
+      console.warn(`[garden] generation attempt ${attempt + 1} failed to parse:`, (err as Error).message);
+    }
+  }
+  if (generated.length === 0) throw new Error("The planner returned an empty or invalid path");
 
-  const title = parsed.subject_title?.trim() || goal.trim() || "A surprise subject";
-  const subjectId = await persistSubject(userId, title, goal.trim() || title, generated, sourceUrl, source);
+  const title = parsedTitle || goal.trim() || "A surprise subject";
+  const subjectId = await persistSubject(userId, title, goal.trim() || title, language, generated, sourceUrl, source);
   await relayout(userId);
   return { garden: await loadGarden(userId), subjectId, provider };
 }
@@ -155,6 +175,7 @@ async function persistSubject(
   userId: string,
   title: string,
   goal: string,
+  language: string,
   generated: GeneratedNode[],
   sourceUrl?: string,
   source?: { name: string; text: string }
@@ -164,8 +185,8 @@ async function persistSubject(
   const subjectId = newId("subj");
 
   await c.execute({
-    sql: `INSERT INTO subjects (id, user_id, title, goal, created_at) VALUES (?, ?, ?, ?, ?)`,
-    args: [subjectId, userId, title, goal, now],
+    sql: `INSERT INTO subjects (id, user_id, title, goal, language, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+    args: [subjectId, userId, title, goal, language, now],
   });
 
   const keyToId = new Map<string, string>();
@@ -309,7 +330,10 @@ export async function lessonHistory(userId: string, nodeId: string): Promise<Mes
   }));
 }
 
-function tutorSystem(node: GraphNode, subjectTitle: string, bloomed: string[], voice: boolean): string {
+function tutorSystem(node: GraphNode, subjectTitle: string, bloomed: string[], voice: boolean, language: string): string {
+  const langRule = language
+    ? `\n\nIMPORTANT: Teach entirely in ${language}. Every reply must be written in ${language}.`
+    : `\n\nReply in the SAME language the learner writes in. If they write in Arabic, answer in Arabic; if French, answer in French, and so on.`;
   return `You are Noesis, an expert, patient tutor. You are teaching ONE concept, in depth, one-to-one. Your job is to TEACH — to make the learner genuinely understand — not to quiz them.
 
 Subject: "${subjectTitle}".
@@ -327,7 +351,7 @@ ${
   voice
     ? "- This will be spoken ALOUD. Use natural spoken language, shorter sentences, NO markdown, no bullet symbols, no headings, no code blocks. Keep each turn conversational — a paragraph or two — and pause to let them respond."
     : "- This is a text chat. You MAY use light markdown: short paragraphs, the occasional bullet list or **bold** for key terms, and fenced code blocks when relevant. Be thorough but well-structured."
-}`;
+}${langRule}`;
 }
 
 async function bloomedTopics(userId: string): Promise<string[]> {
@@ -363,7 +387,7 @@ export async function lessonReply(
 
   const history = await lessonHistory(userId, nodeId);
   const messages: ChatMessage[] = [
-    { role: "system", content: tutorSystem(node, subject?.title ?? node.topic, bloomed, voice) },
+    { role: "system", content: tutorSystem(node, subject?.title ?? node.topic, bloomed, voice, subject?.language ?? "") },
   ];
   if (history.length === 0) {
     messages.push({

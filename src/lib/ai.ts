@@ -104,7 +104,7 @@ async function callOpenRouter(opts: GenerateOptions): Promise<string> {
   const messages = opts.json
     ? opts.messages.map((m, i) =>
         i === opts.messages.length - 1 && m.role === "user"
-          ? { ...m, content: `${m.content}\n\nReturn ONLY a single valid JSON object. No prose, no code fences.` }
+          ? { ...m, content: `${m.content}\n\nReturn ONLY a single valid JSON object — properly escaped, with no unescaped double-quotes or raw line breaks inside string values, no prose, no code fences.` }
           : m
       )
     : opts.messages;
@@ -197,5 +197,10 @@ export function parseJsonObject<T>(raw: string): T {
     const last = s.lastIndexOf("}");
     if (first !== -1 && last !== -1) s = s.slice(first, last + 1);
   }
-  return JSON.parse(s) as T;
+  try {
+    return JSON.parse(s) as T;
+  } catch {
+    // Tolerate trailing commas before } or ], a common malformed-JSON case.
+    return JSON.parse(s.replace(/,(\s*[}\]])/g, "$1")) as T;
+  }
 }

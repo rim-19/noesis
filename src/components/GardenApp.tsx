@@ -110,14 +110,14 @@ export function GardenApp() {
     [flash]
   );
 
-  const surpriseMe = useCallback(async () => {
+  const surpriseMe = useCallback(async (language?: string) => {
     setGenerating(true);
     try {
       const seed = `${Math.random().toString(36).slice(2)}-${Math.floor(Math.random() * 1e9)}`;
       const res = await fetch("/api/garden/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ surprise: true, seed }),
+        body: JSON.stringify({ surprise: true, seed, language }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "generation failed");

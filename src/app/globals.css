@@ -13,7 +13,7 @@
   --moss: #4dbd77;          /* growth — vivid green accent */
   --moss-bright: #67dd96;   /* bloom highlight */
   --sprout: #a6e69f;        /* in-progress — bright secondary accent */
-  --seed-gray: #a998c8;     /* unverified — soft lavender, alive (not dead gray) */
+  --seed-gray: #6a5d8a;     /* unverified — deep muted violet (not pale) */
   --firefly-gold: #ffcf5c;  /* companion glow, CTA — vivid */
   --moonlight: #f9f6fd;     /* primary text — bright, high contrast */
   --moonlight-dim: #d6cce6; /* secondary text */
@@ -64,12 +64,12 @@ body {
   overscroll-behavior: none;
 }
 
-/* A warm dusk glow so the garden feels lit from within (richer now) */
+/* A subtle warm dusk glow — kept low so the field reads deep, not hazy/pale */
 .dusk-field {
   background:
-    radial-gradient(110% 80% at 50% 0%, rgba(255, 207, 92, 0.14) 0%, transparent 52%),
-    radial-gradient(90% 70% at 85% 100%, rgba(77, 189, 119, 0.16) 0%, transparent 58%),
-    radial-gradient(85% 65% at 8% 30%, rgba(247, 149, 200, 0.13) 0%, transparent 55%),
+    radial-gradient(100% 70% at 50% 0%, rgba(255, 207, 92, 0.07) 0%, transparent 48%),
+    radial-gradient(85% 60% at 88% 100%, rgba(77, 189, 119, 0.08) 0%, transparent 55%),
+    radial-gradient(80% 55% at 6% 28%, rgba(247, 149, 200, 0.06) 0%, transparent 52%),
     var(--dusk-ink);
 }
 
@@ -147,7 +147,7 @@ body {
 .tutor-md h1 { font-size: 1.15rem; }
 .tutor-md h2 { font-size: 1.05rem; }
 .tutor-md h3 { font-size: 1rem; }
-.tutor-md ul, .tutor-md ol { margin: 0.5em 0; padding-left: 1.3em; }
+.tutor-md ul, .tutor-md ol { margin: 0.5em 0; padding-inline-start: 1.3em; }
 .tutor-md li { margin: 0.25em 0; }
 .tutor-md a { color: var(--firefly-gold); text-decoration: underline; }
 .tutor-md code {
@@ -167,8 +167,8 @@ body {
 }
 .tutor-md pre code { background: none; padding: 0; font-size: 0.82em; }
 .tutor-md blockquote {
-  border-left: 2px solid var(--dusk-line);
-  padding-left: 0.9em;
+  border-inline-start: 2px solid var(--dusk-line);
+  padding-inline-start: 0.9em;
   margin: 0.6em 0;
   color: var(--moonlight-dim);
 }

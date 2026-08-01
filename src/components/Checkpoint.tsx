@@ -92,6 +92,7 @@ export function Checkpoint({
               onChange={(e) => setText(e.target.value)}
               autoFocus
               rows={7}
+              dir="auto"
               placeholder={listening ? "listening…" : transcribing ? "hearing you…" : "Start explaining…"}
               className="w-full resize-none rounded-2xl px-4 py-3 text-[15px] outline-none placeholder:text-moonlight-faint"
               style={{ background: "var(--dusk-ink-2)", border: "1px solid var(--dusk-line)", color: "var(--moonlight)" }}

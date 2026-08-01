@@ -88,11 +88,20 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS idx_messages_node ON messages(user_id, node_id)`,
 ];
 
+// Columns added after the initial schema. ALTER fails if the column already
+// exists, so each is wrapped and ignored — safe on fresh and existing DBs.
+const MIGRATIONS = [
+  `ALTER TABLE subjects ADD COLUMN language TEXT NOT NULL DEFAULT ''`,
+];
+
 export async function db(): Promise<Client> {
   const c = client();
   if (!_ready) {
     _ready = (async () => {
       for (const stmt of SCHEMA) await c.execute(stmt);
+      for (const stmt of MIGRATIONS) {
+        try { await c.execute(stmt); } catch { /* column already exists */ }
+      }
     })();
   }
   await _ready;
