@@ -41,9 +41,9 @@ export function GrowthEdge({
         d={path}
         fill="none"
         stroke="var(--baby-pink)"
-        strokeWidth={6}
+        strokeWidth={7}
         strokeLinecap="round"
-        opacity={0.14}
+        opacity={0.22}
       />
       <BaseEdge
         id={id}
@@ -51,14 +51,14 @@ export function GrowthEdge({
         markerEnd={markerEnd}
         style={{
           stroke: "var(--baby-pink)",
-          strokeWidth: grown ? 2 : 1.6,
+          strokeWidth: grown ? 2.4 : 2,
           strokeLinecap: "round",
-          strokeDasharray: grown ? "none" : "1 7",
-          opacity: grown ? 0.85 : 0.6,
+          strokeDasharray: grown ? "none" : "2 6",
+          opacity: grown ? 1 : 0.85,
         }}
       />
       {/* a small bud where the vine meets its child */}
-      <circle cx={midX} cy={midY} r={2} fill="var(--baby-pink)" opacity={0.7} />
+      <circle cx={midX} cy={midY} r={2.4} fill="var(--baby-pink)" opacity={0.95} />
     </>
   );
 }

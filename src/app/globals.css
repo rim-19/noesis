@@ -23,7 +23,7 @@
   --blush: #f795c8;         /* rose — bloomed petals, primary accent */
   --petal: #ffb6dd;         /* bright petal pink — highlights, particles */
   --wisteria: #cda6f8;      /* soft lavender — second bloom hue, accents */
-  --baby-pink: #f8c4e0;     /* connection lines between nodes */
+  --baby-pink: #f79ad0;     /* connection lines between nodes — clear, vivid pink */
 
   /* Fonts (bound in layout.tsx via next/font) */
   --font-display: var(--font-fraunces), Georgia, serif;

@@ -58,11 +58,9 @@ export function GoalComposer({
       <div
         className="flex items-center gap-2 rounded-2xl px-3 py-2.5 transition-shadow sm:px-4 sm:py-3"
         style={{
-          background: "color-mix(in srgb, var(--dusk-ink-2) 88%, transparent)",
-          border: "1px solid rgba(232,236,241,0.10)",
-          boxShadow: hero
-            ? "0 0 60px rgba(242,196,100,0.10), inset 0 1px 0 rgba(232,236,241,0.04)"
-            : "0 8px 30px rgba(0,0,0,0.35)",
+          background: "color-mix(in srgb, var(--dusk-ink-2) 92%, transparent)",
+          border: "1px solid var(--dusk-line)",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.35)",
         }}
       >
         <input
