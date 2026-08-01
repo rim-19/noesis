@@ -5,24 +5,24 @@
    CALLIA — "Garden at dusk" design tokens
    ============================================================ */
 :root {
-  /* Palette — warm dusk (charcoal-plum, not blue), readable and comfortable */
-  --dusk-ink: #29252f;      /* app background, warm dark charcoal-plum */
-  --dusk-ink-2: #332e3c;    /* raised surfaces / cards */
-  --dusk-ink-3: #3c3646;    /* panels / overlays */
-  --dusk-line: #554d61;     /* borders / hairlines, actually visible */
-  --moss: #5faa78;          /* growth — primary green accent */
-  --moss-bright: #74c492;   /* bloom highlight */
-  --sprout: #a9d3a4;        /* in-progress — secondary accent */
-  --seed-gray: #8b8397;     /* unverified / muted (warm grey) */
-  --firefly-gold: #f5cd76;  /* companion glow, CTA */
-  --moonlight: #f6f3f8;     /* primary text — warm near-white, high contrast */
-  --moonlight-dim: #cec7d6; /* secondary text (AA on the surfaces above) */
-  --moonlight-faint: #9d95a8; /* tertiary / mono data */
+  /* Palette — warm plum dusk, richer and higher-contrast (less gray, less blur) */
+  --dusk-ink: #201826;      /* app background, deep warm plum-charcoal */
+  --dusk-ink-2: #322641;    /* raised surfaces / cards — clearly lighter */
+  --dusk-ink-3: #3f3155;    /* panels / overlays */
+  --dusk-line: #63527f;     /* borders / hairlines — saturated, visible */
+  --moss: #4dbd77;          /* growth — vivid green accent */
+  --moss-bright: #67dd96;   /* bloom highlight */
+  --sprout: #a6e69f;        /* in-progress — bright secondary accent */
+  --seed-gray: #a998c8;     /* unverified — soft lavender, alive (not dead gray) */
+  --firefly-gold: #ffcf5c;  /* companion glow, CTA — vivid */
+  --moonlight: #f9f6fd;     /* primary text — bright, high contrast */
+  --moonlight-dim: #d6cce6; /* secondary text */
+  --moonlight-faint: #a99cc2; /* tertiary / mono data */
 
-  /* Bloom accents — dusk-flower hues */
-  --blush: #ef9dbf;         /* rose — bloomed petals, primary accent */
-  --petal: #f7b3d3;         /* bright petal pink — highlights, particles */
-  --wisteria: #c9a9ee;      /* soft lavender — second bloom hue, accents */
+  /* Bloom accents — dusk-flower hues, saturated */
+  --blush: #f795c8;         /* rose — bloomed petals, primary accent */
+  --petal: #ffb6dd;         /* bright petal pink — highlights, particles */
+  --wisteria: #cda6f8;      /* soft lavender — second bloom hue, accents */
 
   /* Fonts (bound in layout.tsx via next/font) */
   --font-display: var(--font-fraunces), Georgia, serif;
@@ -64,12 +64,12 @@ body {
   overscroll-behavior: none;
 }
 
-/* A warm dusk glow so the garden feels lit from within */
+/* A warm dusk glow so the garden feels lit from within (richer now) */
 .dusk-field {
   background:
-    radial-gradient(120% 90% at 50% 6%, rgba(245, 205, 118, 0.10) 0%, transparent 55%),
-    radial-gradient(90% 70% at 82% 94%, rgba(95, 170, 120, 0.13) 0%, transparent 60%),
-    radial-gradient(80% 60% at 12% 20%, rgba(239, 157, 191, 0.08) 0%, transparent 55%),
+    radial-gradient(110% 80% at 50% 0%, rgba(255, 207, 92, 0.14) 0%, transparent 52%),
+    radial-gradient(90% 70% at 85% 100%, rgba(77, 189, 119, 0.16) 0%, transparent 58%),
+    radial-gradient(85% 65% at 8% 30%, rgba(247, 149, 200, 0.13) 0%, transparent 55%),
     var(--dusk-ink);
 }
 
@@ -92,12 +92,12 @@ body {
   color: var(--moonlight-faint);
 }
 
-/* Translucent slide-in panel surface */
+/* Slide-in panel surface — mostly solid, only a touch of blur */
 .panel-glass {
-  background: color-mix(in srgb, var(--dusk-ink-3) 82%, transparent);
-  backdrop-filter: blur(18px) saturate(1.1);
-  -webkit-backdrop-filter: blur(18px) saturate(1.1);
-  border-left: 1px solid rgba(232, 236, 241, 0.08);
+  background: color-mix(in srgb, var(--dusk-ink-3) 97%, transparent);
+  backdrop-filter: blur(6px) saturate(1.15);
+  -webkit-backdrop-filter: blur(6px) saturate(1.15);
+  border-left: 1px solid var(--dusk-line);
 }
 
 /* Scrollbars, quiet */

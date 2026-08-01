@@ -128,6 +128,9 @@ async function callOpenRouter(opts: GenerateOptions): Promise<string> {
       messages,
       temperature: opts.temperature ?? 0.7,
       ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
+      // Many free models are reasoning models — without this they spend their
+      // whole budget "thinking" and return an empty/slow answer. Keep it minimal.
+      reasoning: { effort: "low" },
     }),
   });
 

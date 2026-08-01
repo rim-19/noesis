@@ -91,7 +91,7 @@ interface GeneratedNode {
 const GRAPH_SYSTEM = `You are Noesis's curriculum planner. Turn a learning goal into a DETAILED, well-organized dependency graph of concepts to LEARN — a real syllabus, start to finish.
 
 Rules:
-- Return 8 to 14 nodes — a thorough curriculum, not a sketch. Cover the subject comprehensively: foundations, core ideas, key sub-topics, nuances, and the advanced/culminating concepts. Leave no major gap between "knowing nothing" and "understanding it deeply".
+- Return 8 to 12 nodes — a thorough curriculum, not a sketch. Cover the subject comprehensively: foundations, core ideas, key sub-topics, nuances, and the advanced/culminating concepts. Leave no major gap between "knowing nothing" and "understanding it deeply".
 - Order by dependency: each node lists the "key"s of concepts that must be understood first. Use real branching where a concept has multiple prerequisites — not just one long chain.
 - Early nodes are foundations; later nodes build toward mastery of the whole subject.
 - Each node: a specific "topic" (2-6 words) and a one-sentence "concept_summary" of exactly what is taught there. Make topics concrete and distinct, not vague.
@@ -103,7 +103,7 @@ Return STRICT JSON only:
 
 const SURPRISE_SYSTEM = `You are Noesis's curriculum planner. The learner is curious but doesn't know what to study, so YOU choose a genuinely interesting subject for them — from ANY field (science, history, art, philosophy, music, nature, engineering, language, culture, a niche craft or phenomenon — anything). Pick something specific and fascinating, not generic. Vary widely; surprise them.
 
-Then build a DETAILED, well-organized dependency graph of 8 to 14 concepts to learn it start to finish, exactly per these rules:
+Then build a DETAILED, well-organized dependency graph of 8 to 12 concepts to learn it start to finish, exactly per these rules:
 - Order by dependency; each node lists prerequisite "key"s. Use real branching, not one long chain.
 - Foundations first, building toward deep mastery; concrete, distinct topics with a one-sentence summary each.
 - Design it like a complete course an expert would teach.
@@ -140,9 +140,9 @@ export async function generateSubject(
     ];
   }
 
-  const { text, provider } = await generate({ messages, json: true, temperature: surprise ? 1.0 : 0.6, maxTokens: 3500 });
+  const { text, provider } = await generate({ messages, json: true, temperature: surprise ? 0.85 : 0.5, maxTokens: 2200 });
   const parsed = parseJsonObject<{ subject_title?: string; nodes: GeneratedNode[] }>(text);
-  const generated = (parsed.nodes ?? []).slice(0, 14);
+  const generated = (parsed.nodes ?? []).slice(0, 12);
   if (generated.length === 0) throw new Error("The planner returned an empty path");
 
   const title = parsed.subject_title?.trim() || goal.trim() || "A surprise subject";

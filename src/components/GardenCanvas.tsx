@@ -78,7 +78,7 @@ export function GardenCanvas({
       nodesConnectable={false}
       elementsSelectable
     >
-      <Background variant={BackgroundVariant.Dots} gap={40} size={1} color="rgba(232,236,241,0.05)" />
+      <Background variant={BackgroundVariant.Dots} gap={38} size={1.5} color="rgba(205,166,248,0.14)" />
     </ReactFlow>
   );
 }

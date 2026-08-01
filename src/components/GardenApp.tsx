@@ -13,6 +13,7 @@ import { SettingsPanel, type Settings } from "./SettingsPanel";
 import { LessonChat } from "./LessonChat";
 import { Checkpoint } from "./Checkpoint";
 import { NudgeBanner } from "./NudgeBanner";
+import { SurpriseModal } from "./SurpriseModal";
 import { GoalComposer } from "./GoalComposer";
 import { AmbientFireflies } from "./AmbientFireflies";
 import { registerServiceWorker, fetchNudges, enablePush } from "@/lib/nudges";
@@ -47,6 +48,7 @@ export function GardenApp() {
   const [wilting, setWilting] = useState<{ id: string; topic: string }[]>([]);
   const [vapidKey, setVapidKey] = useState("");
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [surpriseOpen, setSurpriseOpen] = useState(false);
 
   useEffect(() => {
     fetch("/api/garden")
@@ -120,6 +122,7 @@ export function GardenApp() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "generation failed");
       setGarden(data.garden as Garden);
+      setSurpriseOpen(false);
     } catch (e) {
       flash((e as Error).message || "Couldn't pick something. Try again.");
     } finally {
@@ -185,7 +188,14 @@ export function GardenApp() {
   }
 
   const empty = !garden || garden.nodes.length === 0;
-  if (empty) return <EmptyState busy={generating} onSubmit={generate} onSurprise={surpriseMe} />;
+  if (empty) {
+    return (
+      <>
+        <EmptyState busy={generating} onSubmit={generate} onSurprise={() => setSurpriseOpen(true)} />
+        <SurpriseModal open={surpriseOpen} busy={generating} onPick={surpriseMe} onClose={() => setSurpriseOpen(false)} />
+      </>
+    );
+  }
 
   return (
     <div className="relative h-dvh w-full overflow-hidden dusk-field">
@@ -200,7 +210,7 @@ export function GardenApp() {
           <GoalComposer variant="compact" busy={generating} onSubmit={generate} />
         </div>
         <div className="pointer-events-auto flex items-center gap-2">
-          <button onClick={surpriseMe} disabled={generating} title="Surprise me — pick any subject" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg transition-colors hover:text-moonlight disabled:opacity-40" style={{ background: "color-mix(in srgb, var(--dusk-ink-2) 80%, transparent)", border: "1px solid var(--dusk-line)" }} aria-label="Surprise me">
+          <button onClick={() => setSurpriseOpen(true)} disabled={generating} title="Surprise me — pick any subject" className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-lg transition-colors hover:text-moonlight disabled:opacity-40" style={{ background: "color-mix(in srgb, var(--dusk-ink-2) 80%, transparent)", border: "1px solid var(--dusk-line)" }} aria-label="Surprise me">
             🎲
           </button>
           <button onClick={() => setPanel("settings")} className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-moonlight-dim transition-colors hover:text-moonlight" style={{ background: "color-mix(in srgb, var(--dusk-ink-2) 80%, transparent)", border: "1px solid var(--dusk-line)" }} aria-label="Settings">
@@ -267,6 +277,8 @@ export function GardenApp() {
           <Checkpoint key="check" node={overlay.node} onClose={() => setOverlay(null)} onResult={handleCheckpointResult} />
         )}
       </AnimatePresence>
+
+      <SurpriseModal open={surpriseOpen} busy={generating} onPick={surpriseMe} onClose={() => setSurpriseOpen(false)} />
     </div>
   );
 }
