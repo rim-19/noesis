@@ -40,25 +40,25 @@ export function GrowthEdge({
       <path
         d={path}
         fill="none"
-        stroke={grown ? "var(--moss)" : "var(--seed-gray)"}
+        stroke="var(--baby-pink)"
         strokeWidth={6}
         strokeLinecap="round"
-        opacity={0.12}
+        opacity={0.14}
       />
       <BaseEdge
         id={id}
         path={path}
         markerEnd={markerEnd}
         style={{
-          stroke: grown ? "var(--sprout)" : "var(--seed-gray)",
-          strokeWidth: 1.6,
+          stroke: "var(--baby-pink)",
+          strokeWidth: grown ? 2 : 1.6,
           strokeLinecap: "round",
           strokeDasharray: grown ? "none" : "1 7",
-          opacity: grown ? 0.75 : 0.5,
+          opacity: grown ? 0.85 : 0.6,
         }}
       />
-      {/* a small node where the vine meets its child, like a bud */}
-      <circle cx={midX} cy={midY} r={2} fill={grown ? "var(--sprout)" : "var(--seed-gray)"} opacity={0.6} />
+      {/* a small bud where the vine meets its child */}
+      <circle cx={midX} cy={midY} r={2} fill="var(--baby-pink)" opacity={0.7} />
     </>
   );
 }

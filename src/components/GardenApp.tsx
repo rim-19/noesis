@@ -206,7 +206,7 @@ export function GardenApp() {
 
       {/* top bar */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-4">
-        <div className="pointer-events-auto w-[min(22rem,72vw)]">
+        <div className="pointer-events-auto w-[min(22rem,54vw)] sm:w-[min(22rem,72vw)]">
           <GoalComposer variant="compact" busy={generating} onSubmit={generate} />
         </div>
         <div className="pointer-events-auto flex items-center gap-2">

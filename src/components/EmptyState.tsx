@@ -20,10 +20,10 @@ export function EmptyState({
   onSurprise: () => void;
 }) {
   return (
-    <div className="dusk-field relative grid min-h-dvh place-items-center overflow-hidden px-6 py-16">
+    <div className="dusk-field relative flex min-h-dvh w-full overflow-y-auto overflow-x-hidden px-5 py-10 sm:px-6">
       <AmbientFireflies opacity={0.45} />
 
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: "easeOut" }} className="flex w-full max-w-xl flex-col items-center text-center">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease: "easeOut" }} className="relative z-10 m-auto flex w-full max-w-xl flex-col items-center text-center">
         <div className="mb-6"><CompanionWisp state="idle" size={72} label="Your tutor, waiting" /></div>
 
         <h1 className="spoken mb-3 text-3xl text-moonlight sm:text-4xl">

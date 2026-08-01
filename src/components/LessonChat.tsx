@@ -134,9 +134,9 @@ export function LessonChat({
     <motion.div className="dusk-field fixed inset-0 z-[60] flex flex-col" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
       {/* header with a clear exit */}
       <div className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-6" style={{ borderColor: "var(--dusk-line)" }}>
-        <button onClick={onClose} className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-moonlight-dim transition-colors hover:text-moonlight" style={{ border: "1px solid var(--dusk-line)" }}>
+        <button onClick={onClose} className="flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-moonlight-dim transition-colors hover:text-moonlight" style={{ border: "1px solid var(--dusk-line)" }} aria-label="Back to garden">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 6l-6 6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          Back to garden
+          <span className="hidden sm:inline">Back to garden</span>
         </button>
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="min-w-0 text-right">
