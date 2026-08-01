@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { wiltingNodes } from "@/lib/garden";
 import { vapidPublicKey } from "@/lib/push";
+import { getUserId } from "@/lib/user";
 
 export const runtime = "nodejs";
 
-/** In-app nudge feed: which nodes are wilting, plus the VAPID key for push opt-in. */
 export async function GET() {
   try {
-    const wilting = await wiltingNodes();
+    const userId = await getUserId();
+    const wilting = await wiltingNodes(userId);
     return NextResponse.json({
       wilting: wilting.map((n) => ({ id: n.id, topic: n.topic })),
       vapidPublicKey: vapidPublicKey(),

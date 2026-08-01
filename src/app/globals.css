@@ -5,23 +5,24 @@
    CALLIA — "Garden at dusk" design tokens
    ============================================================ */
 :root {
-  /* Palette */
-  --dusk-ink: #161d2e;      /* background, deep dusk-blue-black */
-  --dusk-ink-2: #1c2437;    /* raised surfaces */
-  --dusk-ink-3: #222c44;    /* panels / overlays */
-  --moss: #3f6b4f;          /* bloomed / verified — primary accent */
-  --moss-bright: #4f8763;   /* bloom highlight */
-  --sprout: #8bb08a;        /* in-progress — secondary accent */
-  --seed-gray: #4a5568;     /* unverified / muted */
-  --firefly-gold: #f2c464;  /* the companion's glow, CTA — used sparingly */
-  --moonlight: #e8ecf1;     /* primary text on dark */
-  --moonlight-dim: #a6b0c2; /* secondary text */
-  --moonlight-faint: #6b7689; /* tertiary / mono data */
+  /* Palette — dusk, but lifted well off black for readable, comfortable study */
+  --dusk-ink: #232c44;      /* app background, a lighter dusk indigo */
+  --dusk-ink-2: #2c3654;    /* raised surfaces / cards */
+  --dusk-ink-3: #333e60;    /* panels / overlays */
+  --dusk-line: #465179;     /* borders / hairlines, actually visible */
+  --moss: #5b9b73;          /* growth — primary green accent */
+  --moss-bright: #6fb98c;   /* bloom highlight */
+  --sprout: #a7cfa6;        /* in-progress — secondary accent */
+  --seed-gray: #7a86a6;     /* unverified / muted (lightened for contrast) */
+  --firefly-gold: #f5cd76;  /* companion glow, CTA */
+  --moonlight: #f4f7fb;     /* primary text — near white, high contrast */
+  --moonlight-dim: #c4ccdd; /* secondary text (AA on the surfaces above) */
+  --moonlight-faint: #97a1bb; /* tertiary / mono data */
 
-  /* Feminine bloom accents — dusk-flower hues, catchy but never neon */
-  --blush: #e78fb3;         /* rose — bloomed flower petals, primary feminine accent */
-  --petal: #f6a5cb;         /* bright petal pink — highlights, particles */
-  --wisteria: #b89ce6;      /* soft lavender — a second bloom hue, accents */
+  /* Feminine bloom accents — dusk-flower hues */
+  --blush: #ef9dbf;         /* rose — bloomed petals, primary feminine accent */
+  --petal: #f7b3d3;         /* bright petal pink — highlights, particles */
+  --wisteria: #c3aef0;      /* soft lavender — second bloom hue, accents */
 
   /* Fonts (bound in layout.tsx via next/font) */
   --font-display: var(--font-fraunces), Georgia, serif;
@@ -33,6 +34,7 @@
   --color-dusk-ink: var(--dusk-ink);
   --color-dusk-ink-2: var(--dusk-ink-2);
   --color-dusk-ink-3: var(--dusk-ink-3);
+  --color-dusk-line: var(--dusk-line);
   --color-moss: var(--moss);
   --color-moss-bright: var(--moss-bright);
   --color-sprout: var(--sprout);
@@ -62,11 +64,11 @@ body {
   overscroll-behavior: none;
 }
 
-/* A faint dusk vignette so the garden feels lit from within */
+/* A soft dusk glow so the garden feels lit from within (lighter now) */
 .dusk-field {
   background:
-    radial-gradient(120% 90% at 50% 8%, rgba(60, 82, 120, 0.22) 0%, transparent 55%),
-    radial-gradient(90% 70% at 82% 92%, rgba(63, 107, 79, 0.14) 0%, transparent 60%),
+    radial-gradient(120% 90% at 50% 6%, rgba(120, 140, 190, 0.20) 0%, transparent 55%),
+    radial-gradient(90% 70% at 82% 94%, rgba(91, 155, 115, 0.14) 0%, transparent 60%),
     var(--dusk-ink);
 }
 
@@ -122,6 +124,52 @@ body {
   outline: 2px solid color-mix(in srgb, var(--firefly-gold) 70%, transparent);
   outline-offset: 2px;
   border-radius: 6px;
+}
+
+/* Tutor message markdown — readable, well-spaced explanations */
+.tutor-md {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.65;
+  color: var(--moonlight);
+}
+.tutor-md > :first-child { margin-top: 0; }
+.tutor-md > :last-child { margin-bottom: 0; }
+.tutor-md p { margin: 0.6em 0; }
+.tutor-md strong { color: var(--moonlight); font-weight: 600; }
+.tutor-md h1, .tutor-md h2, .tutor-md h3 {
+  font-family: var(--font-display);
+  color: var(--moonlight);
+  margin: 0.9em 0 0.4em;
+  line-height: 1.3;
+}
+.tutor-md h1 { font-size: 1.15rem; }
+.tutor-md h2 { font-size: 1.05rem; }
+.tutor-md h3 { font-size: 1rem; }
+.tutor-md ul, .tutor-md ol { margin: 0.5em 0; padding-left: 1.3em; }
+.tutor-md li { margin: 0.25em 0; }
+.tutor-md a { color: var(--firefly-gold); text-decoration: underline; }
+.tutor-md code {
+  font-family: var(--font-mono);
+  font-size: 0.85em;
+  background: rgba(0, 0, 0, 0.28);
+  padding: 0.1em 0.35em;
+  border-radius: 5px;
+}
+.tutor-md pre {
+  background: rgba(0, 0, 0, 0.32);
+  border: 1px solid var(--dusk-line);
+  border-radius: 10px;
+  padding: 0.8em 1em;
+  overflow-x: auto;
+  margin: 0.7em 0;
+}
+.tutor-md pre code { background: none; padding: 0; font-size: 0.82em; }
+.tutor-md blockquote {
+  border-left: 2px solid var(--dusk-line);
+  padding-left: 0.9em;
+  margin: 0.6em 0;
+  color: var(--moonlight-dim);
 }
 
 /* Reduced motion: silence the ambient life */

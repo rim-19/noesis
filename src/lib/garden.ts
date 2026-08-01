@@ -1,4 +1,6 @@
-// Repository + AI orchestration for the garden: load, generate, converse, grade.
+// Repository + AI orchestration for the garden. Everything is scoped to a
+// userId so gardens are private. Teaching-first: a node has a persistent lesson
+// thread where the tutor actually teaches; verification is a separate step.
 
 import "server-only";
 import { db, newId } from "./db";
@@ -7,20 +9,22 @@ import type {
   Garden,
   GraphNode,
   GraphEdge,
+  Subject,
   Resource,
   NodeStatus,
+  Message,
   CheckpointResult,
-  Turn,
 } from "./types";
 
 // ---------- Load ----------
 
-export async function loadGarden(): Promise<Garden> {
+export async function loadGarden(userId: string): Promise<Garden> {
   const c = await db();
-  const [nodesRes, edgesRes, resRes] = await Promise.all([
-    c.execute("SELECT * FROM nodes ORDER BY created_at ASC"),
-    c.execute("SELECT * FROM edges"),
-    c.execute("SELECT * FROM resources ORDER BY rank ASC"),
+  const [subjRes, nodesRes, edgesRes, resRes] = await Promise.all([
+    c.execute({ sql: "SELECT * FROM subjects WHERE user_id = ? ORDER BY created_at ASC", args: [userId] }),
+    c.execute({ sql: "SELECT * FROM nodes WHERE user_id = ? ORDER BY created_at ASC", args: [userId] }),
+    c.execute({ sql: "SELECT * FROM edges WHERE user_id = ?", args: [userId] }),
+    c.execute({ sql: "SELECT * FROM resources WHERE user_id = ? ORDER BY rank ASC", args: [userId] }),
   ]);
 
   const resByNode = new Map<string, Resource[]>();
@@ -39,11 +43,20 @@ export async function loadGarden(): Promise<Garden> {
     resByNode.set(nodeId, arr);
   }
 
+  const subjects: Subject[] = subjRes.rows.map((s) => ({
+    id: String(s.id),
+    title: String(s.title),
+    goal: String(s.goal),
+    created_at: Number(s.created_at),
+  }));
+
   const nodes: GraphNode[] = nodesRes.rows.map((n) => ({
     id: String(n.id),
+    subject_id: String(n.subject_id),
     topic: String(n.topic),
     concept_summary: String(n.concept_summary),
     status: n.status as NodeStatus,
+    depth: Number(n.depth),
     x: Number(n.x),
     y: Number(n.y),
     created_at: Number(n.created_at),
@@ -53,81 +66,94 @@ export async function loadGarden(): Promise<Garden> {
 
   const edges: GraphEdge[] = edgesRes.rows.map((e) => ({
     id: String(e.id),
+    subject_id: String(e.subject_id),
     from_node_id: String(e.from_node_id),
     to_node_id: String(e.to_node_id),
   }));
 
-  return { nodes, edges };
+  return { subjects, nodes, edges };
 }
 
-// ---------- Generate a graph from a goal ----------
+export async function getNode(userId: string, nodeId: string): Promise<GraphNode | null> {
+  const garden = await loadGarden(userId);
+  return garden.nodes.find((n) => n.id === nodeId) ?? null;
+}
+
+// ---------- Generate a subject (cluster of nodes) from a goal ----------
 
 interface GeneratedNode {
   key: string;
   topic: string;
   concept_summary: string;
-  prerequisites: string[]; // keys of other generated nodes
-  resources: { title: string; url: string; type: string }[];
+  prerequisites: string[];
 }
 
-const GRAPH_SYSTEM = `You are Noesis's graph gardener. You turn a learning goal into a SMALL dependency graph of concepts.
+const GRAPH_SYSTEM = `You are Noesis's curriculum planner. Turn a learning goal into a SMALL, well-ordered dependency graph of concepts to LEARN.
 
 Rules:
-- Return 3 to 6 nodes MAX. Never a huge tree — the graph grows later as the learner progresses.
-- Order matters: earlier concepts are prerequisites of later ones. The final node should be the goal itself.
-- Each node: a short "topic" (2-5 words), a one-sentence "concept_summary", a list of prerequisite node keys (by their "key"), and 1-3 real, well-known resources.
-- Resources must be plausible real URLs (official docs, well-known YouTube channels, canonical articles). Mark type as "video", "doc", or "article".
-- If the learner provides their own source, treat it as the SPINE of the graph: build nodes that follow that source's structure, then add prerequisite nodes only where a beginner would be missing something. Attach the provided source (user_provided) to the most relevant node(s).
-- Keep it honest and beginner-aware. Do not invent nodes just to look thorough.
+- Return 4 to 7 nodes. Not a huge tree — it grows over time.
+- Order by dependency: a node lists the "key"s of concepts that must be understood first.
+- The LAST node should be the goal itself; earlier nodes are the building blocks.
+- Each node: a short "topic" (2-5 words), and a one-sentence "concept_summary" of what will be taught there.
+- Cover the real backbone a good teacher would sequence — foundations first, no gaps, no filler.
 
-Return STRICT JSON only, no prose, shaped exactly as:
-{"nodes":[{"key":"snake_case_id","topic":"...","concept_summary":"...","prerequisites":["other_key"],"resources":[{"title":"...","url":"https://...","type":"video|doc|article"}]}]}`;
+Return STRICT JSON only:
+{"subject_title":"short title for this whole topic","nodes":[{"key":"snake_case_id","topic":"...","concept_summary":"...","prerequisites":["other_key"]}]}`;
 
-export async function generateGraph(
+export async function generateSubject(
+  userId: string,
   goal: string,
   sourceUrl?: string,
   source?: { name: string; text: string }
-) {
-  const userParts = [`Learning goal: "${goal.trim()}"`];
+): Promise<{ garden: Garden; subjectId: string; provider: string }> {
+  const parts = [`Learning goal: "${goal.trim()}"`];
   if (sourceUrl?.trim()) {
-    userParts.push(
-      `The learner wants to learn from THIS specific source (use it as the spine, fill only real gaps): ${sourceUrl.trim()}`
-    );
+    parts.push(`Shape the path around this source the learner chose (fill only genuine gaps): ${sourceUrl.trim()}`);
   }
   if (source?.text?.trim()) {
-    userParts.push(
-      `The learner uploaded a source titled "${source.name}". Use its CONTENT below as the spine of the graph — build nodes that follow its structure, and add prerequisite nodes only where a beginner would be missing something.\n\n--- SOURCE CONTENT (may be truncated) ---\n${source.text.trim()}\n--- END SOURCE ---`
+    parts.push(
+      `The learner uploaded "${source.name}". Use its structure as the backbone; add prerequisite nodes only where a beginner would be missing something.\n\n--- SOURCE (may be truncated) ---\n${source.text.trim()}\n--- END ---`
     );
   }
 
   const messages: ChatMessage[] = [
     { role: "system", content: GRAPH_SYSTEM },
-    { role: "user", content: userParts.join("\n") },
+    { role: "user", content: parts.join("\n") },
   ];
 
-  const { text, provider } = await generate({ messages, json: true, temperature: 0.6 });
-  const parsed = parseJsonObject<{ nodes: GeneratedNode[] }>(text);
-  const generated = (parsed.nodes ?? []).slice(0, 6);
-  if (generated.length === 0) throw new Error("The gardener returned an empty graph");
+  const { text, provider } = await generate({ messages, json: true, temperature: 0.5, maxTokens: 1400 });
+  const parsed = parseJsonObject<{ subject_title?: string; nodes: GeneratedNode[] }>(text);
+  const generated = (parsed.nodes ?? []).slice(0, 7);
+  if (generated.length === 0) throw new Error("The planner returned an empty path");
 
-  const pinnedTitle = source?.name || (sourceUrl ? "Your source" : undefined);
-  const pinnedUrl = sourceUrl?.trim() || (source ? `uploaded:${source.name}` : undefined);
-  const saved = await persistGeneratedGraph(generated, pinnedUrl, pinnedTitle);
-  return { ...saved, provider };
+  const subjectId = await persistSubject(
+    userId,
+    parsed.subject_title?.trim() || goal.trim(),
+    goal.trim(),
+    generated,
+    sourceUrl,
+    source
+  );
+  await relayout(userId);
+  return { garden: await loadGarden(userId), subjectId, provider };
 }
 
-async function persistGeneratedGraph(
+async function persistSubject(
+  userId: string,
+  title: string,
+  goal: string,
   generated: GeneratedNode[],
-  pinnedUrl?: string,
-  pinnedTitle?: string
-): Promise<Garden> {
+  sourceUrl?: string,
+  source?: { name: string; text: string }
+): Promise<string> {
   const c = await db();
   const now = Date.now();
+  const subjectId = newId("subj");
 
-  // Lay the new cluster out organically (not on a grid): a loose vine from
-  // top-left toward bottom-right, jittered deterministically by index.
-  const existing = await c.execute("SELECT COUNT(*) as n FROM nodes");
-  const offset = Number(existing.rows[0]?.n ?? 0);
+  await c.execute({
+    sql: `INSERT INTO subjects (id, user_id, title, goal, created_at) VALUES (?, ?, ?, ?, ?)`,
+    args: [subjectId, userId, title, goal, now],
+  });
 
   const keyToId = new Map<string, string>();
   for (const g of generated) keyToId.set(g.key, newId("node"));
@@ -135,40 +161,29 @@ async function persistGeneratedGraph(
   for (let i = 0; i < generated.length; i++) {
     const g = generated[i];
     const id = keyToId.get(g.key)!;
-    // Organic scatter: a gentle diagonal drift with sine jitter.
-    const t = i + offset * 0.6;
-    const x = 160 + t * 210 + Math.sin(t * 1.7) * 70;
-    const y = 200 + Math.cos(t * 0.9) * 150 + (i % 2) * 90;
-
     await c.execute({
-      sql: `INSERT INTO nodes (id, topic, concept_summary, status, x, y, created_at, last_verified_at)
-            VALUES (?, ?, ?, 'seed', ?, ?, ?, NULL)`,
-      args: [id, g.topic, g.concept_summary ?? "", x, y, now + i],
+      sql: `INSERT INTO nodes (id, user_id, subject_id, topic, concept_summary, status, depth, x, y, created_at, last_verified_at)
+            VALUES (?, ?, ?, ?, ?, 'seed', 0, 0, 0, ?, NULL)`,
+      args: [id, userId, subjectId, g.topic, g.concept_summary ?? "", now + i],
     });
 
-    const resources = (g.resources ?? []).slice(0, 3);
-    for (let r = 0; r < resources.length; r++) {
-      const res = resources[r];
+    // Real, never-dead resources: search links built from the topic.
+    for (const res of searchResources(g.topic)) {
       await c.execute({
-        sql: `INSERT INTO resources (id, node_id, url, title, type, rank, user_provided)
-              VALUES (?, ?, ?, ?, ?, ?, 0)`,
-        args: [
-          newId("res"),
-          id,
-          res.url ?? "",
-          res.title ?? res.url ?? "Resource",
-          normalizeType(res.type),
-          r + 1,
-        ],
+        sql: `INSERT INTO resources (id, user_id, node_id, url, title, type, rank, user_provided)
+              VALUES (?, ?, ?, ?, ?, ?, ?, 0)`,
+        args: [newId("res"), userId, id, res.url, res.title, res.type, res.rank],
       });
     }
 
-    // Pin the learner's own source to the goal node (last generated) as rank 0.
-    if (pinnedUrl?.trim() && i === generated.length - 1) {
+    // Pin the learner's own source to the goal node.
+    if (i === generated.length - 1 && (sourceUrl?.trim() || source)) {
+      const url = sourceUrl?.trim() || `uploaded:${source?.name}`;
+      const title2 = source?.name || "Your source";
       await c.execute({
-        sql: `INSERT INTO resources (id, node_id, url, title, type, rank, user_provided)
-              VALUES (?, ?, ?, ?, ?, 0, 1)`,
-        args: [newId("res"), id, pinnedUrl.trim(), pinnedTitle || "Your source", "article"],
+        sql: `INSERT INTO resources (id, user_id, node_id, url, title, type, rank, user_provided)
+              VALUES (?, ?, ?, ?, ?, 'article', 0, 1)`,
+        args: [newId("res"), userId, id, url, title2],
       });
     }
   }
@@ -179,115 +194,220 @@ async function persistGeneratedGraph(
       const fromId = keyToId.get(pre);
       if (!fromId) continue;
       await c.execute({
-        sql: `INSERT INTO edges (id, from_node_id, to_node_id) VALUES (?, ?, ?)`,
-        args: [newId("edge"), fromId, toId],
+        sql: `INSERT INTO edges (id, user_id, subject_id, from_node_id, to_node_id) VALUES (?, ?, ?, ?, ?)`,
+        args: [newId("edge"), userId, subjectId, fromId, toId],
       });
     }
   }
 
-  return loadGarden();
+  return subjectId;
 }
 
-function normalizeType(t?: string): string {
-  const v = (t ?? "").toLowerCase();
-  if (v.includes("video") || v.includes("youtube")) return "video";
-  if (v.includes("doc")) return "doc";
-  return "article";
+function searchResources(topic: string): { url: string; title: string; type: Resource["type"]; rank: number }[] {
+  const q = encodeURIComponent(topic);
+  return [
+    { url: `https://www.youtube.com/results?search_query=${encodeURIComponent(topic + " tutorial")}`, title: `Watch: ${topic}`, type: "video", rank: 1 },
+    { url: `https://www.google.com/search?q=${encodeURIComponent(topic + " explained")}`, title: `Read about ${topic}`, type: "article", rank: 2 },
+    { url: `https://en.wikipedia.org/w/index.php?search=${q}`, title: `Reference: ${topic}`, type: "doc", rank: 3 },
+  ];
 }
 
-// ---------- Nudges (spaced repetition) ----------
+// ---------- Layout: layered per subject, subjects stacked in lanes ----------
 
-const STALE_MS = 21 * 24 * 60 * 60 * 1000; // three weeks
+const COL_W = 250;
+const ROW_H = 140;
+const LANE_GAP = 130;
+const MARGIN_X = 140;
+const MARGIN_Y = 120;
 
-/** Bloomed nodes not verified in ~3 weeks — "wilting", due for a refresher. */
-export async function wiltingNodes(now = Date.now()): Promise<GraphNode[]> {
-  const garden = await loadGarden();
-  return garden.nodes.filter(
-    (n) => n.status === "bloom" && now - (n.last_verified_at ?? now) > STALE_MS
-  );
+export async function relayout(userId: string): Promise<void> {
+  const c = await db();
+  const garden = await loadGarden(userId);
+
+  let laneTop = MARGIN_Y;
+  const updates: { id: string; x: number; y: number; depth: number }[] = [];
+
+  for (const subject of garden.subjects) {
+    const nodes = garden.nodes.filter((n) => n.subject_id === subject.id);
+    if (nodes.length === 0) continue;
+    const edges = garden.edges.filter((e) => e.subject_id === subject.id);
+
+    // Longest-path depth (prerequisite chain length).
+    const depth = new Map<string, number>();
+    for (const n of nodes) depth.set(n.id, 0);
+    for (let iter = 0; iter < nodes.length; iter++) {
+      let changed = false;
+      for (const e of edges) {
+        const d = Math.max(depth.get(e.to_node_id) ?? 0, (depth.get(e.from_node_id) ?? 0) + 1);
+        if (d !== depth.get(e.to_node_id)) {
+          depth.set(e.to_node_id, d);
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+
+    // Group by depth, assign a row within each column.
+    const byDepth = new Map<number, GraphNode[]>();
+    for (const n of nodes) {
+      const d = depth.get(n.id) ?? 0;
+      const arr = byDepth.get(d) ?? [];
+      arr.push(n);
+      byDepth.set(d, arr);
+    }
+    let maxRows = 1;
+    for (const [, arr] of byDepth) maxRows = Math.max(maxRows, arr.length);
+    const laneHeight = maxRows * ROW_H;
+
+    for (const [d, arr] of byDepth) {
+      arr.sort((a, b) => a.created_at - b.created_at);
+      const colOffset = (laneHeight - arr.length * ROW_H) / 2; // center the column
+      arr.forEach((n, row) => {
+        updates.push({
+          id: n.id,
+          x: MARGIN_X + d * COL_W,
+          y: laneTop + colOffset + row * ROW_H,
+          depth: d,
+        });
+      });
+    }
+
+    laneTop += laneHeight + LANE_GAP;
+  }
+
+  for (const u of updates) {
+    await c.execute({ sql: `UPDATE nodes SET x = ?, y = ?, depth = ? WHERE id = ? AND user_id = ?`, args: [u.x, u.y, u.depth, u.id, userId] });
+  }
 }
 
-// ---------- Conversation (node-aware) ----------
+// ---------- Teaching (the lesson thread) ----------
 
-export async function getNode(nodeId: string): Promise<GraphNode | null> {
-  const garden = await loadGarden();
-  return garden.nodes.find((n) => n.id === nodeId) ?? null;
+export async function lessonHistory(userId: string, nodeId: string): Promise<Message[]> {
+  const c = await db();
+  const res = await c.execute({
+    sql: `SELECT id, role, content, created_at FROM messages WHERE user_id = ? AND node_id = ? ORDER BY created_at ASC`,
+    args: [userId, nodeId],
+  });
+  return res.rows.map((r) => ({
+    id: String(r.id),
+    role: r.role as "user" | "tutor",
+    content: String(r.content),
+    created_at: Number(r.created_at),
+  }));
 }
 
-export async function companionReply(nodeId: string, history: Turn[], mode: string) {
-  const node = await getNode(nodeId);
+function tutorSystem(node: GraphNode, subjectTitle: string, bloomed: string[], voice: boolean): string {
+  return `You are Noesis, an expert, patient tutor. You are teaching ONE concept, in depth, one-to-one. Your job is to TEACH — to make the learner genuinely understand — not to quiz them.
+
+Subject: "${subjectTitle}".
+Concept you are teaching now: "${node.topic}".
+What this concept covers: ${node.concept_summary}
+${bloomed.length ? `The learner has already mastered: ${bloomed.join(", ")}. Build on these and connect to them; don't re-teach them.` : ""}
+
+How to teach:
+- Teach in focused, digestible steps — ONE idea or section at a time, not the entire topic in a single message. This is a conversation, so cover a piece well, then invite them to continue ("ready for the next part?" / "want an example?").
+- For your FIRST message: give a short, engaging introduction — the intuition and why this concept matters — and the very first building block. Do NOT dump the whole lesson at once.
+- Explain from first principles. Start with intuition, then mechanics. Use concrete examples and analogies — show, don't just state.
+- Be accurate above all. If something is genuinely uncertain or debated, say so. Never invent facts.
+- End most turns by inviting the learner to continue or ask — but do NOT quiz them. They can ask you anything and you answer directly and fully.
+${
+  voice
+    ? "- This will be spoken ALOUD. Use natural spoken language, shorter sentences, NO markdown, no bullet symbols, no headings, no code blocks. Keep each turn conversational — a paragraph or two — and pause to let them respond."
+    : "- This is a text chat. You MAY use light markdown: short paragraphs, the occasional bullet list or **bold** for key terms, and fenced code blocks when relevant. Be thorough but well-structured."
+}`;
+}
+
+async function bloomedTopics(userId: string): Promise<string[]> {
+  const garden = await loadGarden(userId);
+  return garden.nodes.filter((n) => n.status === "bloom").map((n) => n.topic).slice(0, 20);
+}
+
+/**
+ * Add the learner's message (if any) and produce the tutor's next teaching turn.
+ * If there's no message and no history, the tutor opens the lesson by teaching.
+ */
+export async function lessonReply(
+  userId: string,
+  nodeId: string,
+  userText: string,
+  voice: boolean
+): Promise<{ message: Message; provider: string }> {
+  const node = await getNode(userId, nodeId);
   if (!node) throw new Error("node not found");
+  const garden = await loadGarden(userId);
+  const subject = garden.subjects.find((s) => s.id === node.subject_id);
+  const bloomed = garden.nodes.filter((n) => n.status === "bloom" && n.id !== nodeId).map((n) => n.topic).slice(0, 20);
 
-  const garden = await loadGarden();
-  const bloomed = garden.nodes
-    .filter((n) => n.status === "bloom")
-    .map((n) => n.topic)
-    .slice(0, 20);
+  const c = await db();
+  const now = Date.now();
 
-  const listenMode = mode === "listen";
-  const system = `You are Noesis — a warm, curious learning companion the user "calls" to talk through a concept, like phoning a friend who happens to know everything. You are talking OUT LOUD; your words will be spoken by a voice.
+  if (userText.trim()) {
+    await c.execute({
+      sql: `INSERT INTO messages (id, user_id, node_id, role, content, created_at) VALUES (?, ?, ?, 'user', ?, ?)`,
+      args: [newId("msg"), userId, nodeId, userText.trim(), now],
+    });
+  }
 
-The concept right now is: "${node.topic}".
-Summary: ${node.concept_summary}
-${bloomed.length ? `The learner has already proven they understand: ${bloomed.join(", ")}. Build on these; don't re-explain them.` : ""}
-
-Style:
-- Speak in short, natural spoken sentences. No markdown, no lists, no headings — this is a phone call.
-- ${listenMode ? "This is 'explain to me' mode: give a clear, flowing spoken explanation with natural pauses, but keep it human, not a lecture." : "Keep YOUR turns short. Ask the learner to explain things back in their own words. Nudge gently when they're fuzzy. Let them lead and go on tangents."}
-- Warm and plain, never twee. One clear idea per turn.
-- If the learner says they've got it / that's enough, wrap up warmly in one sentence.`;
-
-  const messages: ChatMessage[] = [{ role: "system", content: system }];
+  const history = await lessonHistory(userId, nodeId);
+  const messages: ChatMessage[] = [
+    { role: "system", content: tutorSystem(node, subject?.title ?? node.topic, bloomed, voice) },
+  ];
   if (history.length === 0) {
     messages.push({
       role: "user",
-      content: listenMode
-        ? "(the learner just tapped 'explain to me' — begin explaining)"
-        : "(the call just connected — greet them briefly and invite them to start)",
+      content: "Start teaching me this concept from the beginning. Give me a clear, engaging first lesson.",
     });
   } else {
-    for (const t of history) {
-      messages.push({ role: t.speaker === "user" ? "user" : "assistant", content: t.text });
+    for (const m of history) {
+      messages.push({ role: m.role === "user" ? "user" : "assistant", content: m.content });
     }
   }
 
-  const { text, provider } = await generate({ messages, temperature: 0.8 });
-  return { text: text.trim(), provider };
+  const { text, provider } = await generate({
+    messages,
+    temperature: 0.6,
+    maxTokens: voice ? 1000 : 1800,
+  });
+  const content = text.trim();
+
+  const msgId = newId("msg");
+  const created = Date.now();
+  await c.execute({
+    sql: `INSERT INTO messages (id, user_id, node_id, role, content, created_at) VALUES (?, ?, ?, 'tutor', ?, ?)`,
+    args: [msgId, userId, nodeId, content, created],
+  });
+
+  // Starting a lesson moves a seed to sprout (learning in progress).
+  if (node.status === "seed") {
+    await c.execute({ sql: `UPDATE nodes SET status = 'sprout' WHERE id = ? AND user_id = ?`, args: [nodeId, userId] });
+  }
+
+  return { message: { id: msgId, role: "tutor", content, created_at: created }, provider };
 }
 
-// ---------- Grading ----------
+// ---------- Verification (checkpoint) ----------
 
-const GRADE_SYSTEM = `You grade whether a learner actually UNDERSTANDS a concept, based only on what THEY said in a conversation. Be fair but honest — a confident-sounding but factually wrong or vague explanation must NOT pass. Check for real correctness, not fluency or repetition of the tutor's words.
+const GRADE_SYSTEM = `You are a fair examiner checking whether a learner UNDERSTANDS a concept, based only on what THEY said. Reward real, correct understanding in their own words; do NOT reward fluency, confidence, or repeating the tutor. A confident but wrong or vague answer must fail.
 
 Return STRICT JSON only:
-{"understood": boolean, "confidence": number 0..1, "gaps": [ "specific missing or wrong point", ... ], "follow_up_needed": boolean, "companion_note": "one warm, plain sentence to the learner about how it went"}
+{"understood": boolean, "confidence": number 0..1, "gaps": ["specific missing or wrong point"], "follow_up_needed": boolean, "companion_note": "one warm, plain sentence to the learner about how it went"}`;
 
-Guidance:
-- understood=true only if the learner demonstrated the core idea correctly in their own words.
-- If mostly right with one real gap, understood can be true but follow_up_needed=true and list the gap.
-- If they mostly echoed the tutor or were vague/wrong, understood=false.`;
-
-export async function gradeSession(
+export async function gradeCheckpoint(
+  userId: string,
   nodeId: string,
-  transcript: Turn[],
-  mode: string
+  transcript: { speaker: "user" | "ai"; text: string }[]
 ): Promise<{ result: CheckpointResult; garden: Garden; provider: string }> {
-  const node = await getNode(nodeId);
+  const node = await getNode(userId, nodeId);
   if (!node) throw new Error("node not found");
 
-  const convo = transcript
-    .map((t) => `${t.speaker === "user" ? "Learner" : "Companion"}: ${t.text}`)
-    .join("\n");
-
+  const convo = transcript.map((t) => `${t.speaker === "user" ? "Learner" : "Examiner"}: ${t.text}`).join("\n");
   const messages: ChatMessage[] = [
     { role: "system", content: GRADE_SYSTEM },
-    {
-      role: "user",
-      content: `Concept: "${node.topic}" — ${node.concept_summary}\n\nConversation:\n${convo}\n\nGrade the learner.`,
-    },
+    { role: "user", content: `Concept: "${node.topic}" — ${node.concept_summary}\n\nWhat the learner said:\n${convo}\n\nGrade them.` },
   ];
 
-  const { text, provider } = await generate({ messages, json: true, temperature: 0.2 });
+  // Room for reasoning models (e.g. gpt-oss) to think AND still emit the JSON.
+  const { text, provider } = await generate({ messages, json: true, temperature: 0.2, maxTokens: 1500 });
   const raw = parseJsonObject<{
     understood: boolean;
     confidence: number;
@@ -298,11 +418,7 @@ export async function gradeSession(
 
   const understood = !!raw.understood;
   const followUp = !!raw.follow_up_needed;
-  // Passive-listen alone can't fully bloom a node: cap at sprout.
-  let next_status: NodeStatus;
-  if (!understood) next_status = "sprout";
-  else if (followUp || mode === "listen") next_status = "sprout";
-  else next_status = "bloom";
+  const next_status: NodeStatus = understood && !followUp ? "bloom" : "sprout";
 
   const result: CheckpointResult = {
     understood,
@@ -310,82 +426,78 @@ export async function gradeSession(
     gaps: Array.isArray(raw.gaps) ? raw.gaps.slice(0, 5).map(String) : [],
     follow_up_needed: followUp,
     next_status,
-    companion_note: String(raw.companion_note ?? "").trim() || defaultNote(next_status),
+    companion_note:
+      String(raw.companion_note ?? "").trim() ||
+      (next_status === "bloom" ? "That's bloomed — you clearly get it." : "Almost — a little more and this will bloom."),
   };
 
-  await persistCheckpoint(node.id, mode, transcript, result);
-  const garden = await loadGarden();
-  return { result, garden, provider };
-}
-
-async function persistCheckpoint(
-  nodeId: string,
-  mode: string,
-  transcript: Turn[],
-  result: CheckpointResult
-) {
   const c = await db();
   const now = Date.now();
-  const sessionId = newId("sess");
-
   await c.execute({
-    sql: `INSERT INTO call_sessions (id, node_id, mode, started_at, ended_at, audio_ref)
-          VALUES (?, ?, ?, ?, ?, NULL)`,
-    args: [sessionId, nodeId, mode, now, now],
+    sql: `INSERT INTO checkpoint_results (id, user_id, node_id, understood, confidence, gaps, follow_up_needed, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [newId("chk"), userId, nodeId, understood ? 1 : 0, result.confidence, JSON.stringify(result.gaps), followUp ? 1 : 0, now],
+  });
+  const verifiedAt = next_status === "bloom" ? now : null;
+  await c.execute({
+    sql: `UPDATE nodes SET status = ?, last_verified_at = COALESCE(?, last_verified_at) WHERE id = ? AND user_id = ?`,
+    args: [next_status, verifiedAt, nodeId, userId],
   });
 
-  for (const t of transcript) {
-    await c.execute({
-      sql: `INSERT INTO transcripts (id, session_id, speaker, text, timestamp) VALUES (?, ?, ?, ?, ?)`,
-      args: [newId("tr"), sessionId, t.speaker, t.text, now],
-    });
+  return { result, garden: await loadGarden(userId), provider };
+}
+
+// ---------- Management ----------
+
+export async function deleteNode(userId: string, nodeId: string): Promise<Garden> {
+  const c = await db();
+  await c.execute({ sql: `DELETE FROM edges WHERE user_id = ? AND (from_node_id = ? OR to_node_id = ?)`, args: [userId, nodeId, nodeId] });
+  await c.execute({ sql: `DELETE FROM resources WHERE user_id = ? AND node_id = ?`, args: [userId, nodeId] });
+  await c.execute({ sql: `DELETE FROM messages WHERE user_id = ? AND node_id = ?`, args: [userId, nodeId] });
+  await c.execute({ sql: `DELETE FROM nodes WHERE user_id = ? AND id = ?`, args: [userId, nodeId] });
+  await relayout(userId);
+  return loadGarden(userId);
+}
+
+export async function deleteSubject(userId: string, subjectId: string): Promise<Garden> {
+  const c = await db();
+  const nodeRows = await c.execute({ sql: `SELECT id FROM nodes WHERE user_id = ? AND subject_id = ?`, args: [userId, subjectId] });
+  const nodeIds = nodeRows.rows.map((r) => String(r.id));
+  for (const id of nodeIds) {
+    await c.execute({ sql: `DELETE FROM resources WHERE user_id = ? AND node_id = ?`, args: [userId, id] });
+    await c.execute({ sql: `DELETE FROM messages WHERE user_id = ? AND node_id = ?`, args: [userId, id] });
   }
-
-  await c.execute({
-    sql: `INSERT INTO checkpoint_results (id, session_id, understood, confidence, gaps, follow_up_needed, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    args: [
-      newId("chk"),
-      sessionId,
-      result.understood ? 1 : 0,
-      result.confidence,
-      JSON.stringify(result.gaps),
-      result.follow_up_needed ? 1 : 0,
-      now,
-    ],
-  });
-
-  const verifiedAt = result.next_status === "bloom" ? now : null;
-  await c.execute({
-    sql: `UPDATE nodes SET status = ?, last_verified_at = COALESCE(?, last_verified_at) WHERE id = ?`,
-    args: [result.next_status, verifiedAt, nodeId],
-  });
+  await c.execute({ sql: `DELETE FROM edges WHERE user_id = ? AND subject_id = ?`, args: [userId, subjectId] });
+  await c.execute({ sql: `DELETE FROM nodes WHERE user_id = ? AND subject_id = ?`, args: [userId, subjectId] });
+  await c.execute({ sql: `DELETE FROM subjects WHERE user_id = ? AND id = ?`, args: [userId, subjectId] });
+  await relayout(userId);
+  return loadGarden(userId);
 }
 
-// ---------- Quick-explain node (Scenario A) ----------
-
-export async function addQuickNode(topic: string): Promise<Garden> {
+export async function renameNode(userId: string, nodeId: string, topic: string): Promise<Garden> {
   const c = await db();
-  const now = Date.now();
-  const existing = await c.execute("SELECT COUNT(*) as n FROM nodes");
-  const offset = Number(existing.rows[0]?.n ?? 0);
-  const t = offset * 0.6;
-  const x = 160 + t * 210 + Math.sin(t * 1.7) * 70;
-  const y = 200 + Math.cos(t * 0.9) * 150;
-  await c.execute({
-    sql: `INSERT INTO nodes (id, topic, concept_summary, status, x, y, created_at, last_verified_at)
-          VALUES (?, ?, ?, 'seed', ?, ?, ?, NULL)`,
-    args: [newId("node"), topic.trim(), "A quick thing you were curious about.", x, y, now],
-  });
-  return loadGarden();
+  await c.execute({ sql: `UPDATE nodes SET topic = ? WHERE user_id = ? AND id = ?`, args: [topic.trim().slice(0, 80), userId, nodeId] });
+  return loadGarden(userId);
+}
+
+export async function resetGarden(userId: string): Promise<Garden> {
+  const c = await db();
+  for (const t of ["messages", "checkpoint_results", "resources", "edges", "nodes", "subjects"]) {
+    await c.execute({ sql: `DELETE FROM ${t} WHERE user_id = ?`, args: [userId] });
+  }
+  return loadGarden(userId);
+}
+
+// ---------- Nudges ----------
+
+const STALE_MS = 21 * 24 * 60 * 60 * 1000;
+
+export async function wiltingNodes(userId: string, now = Date.now()): Promise<GraphNode[]> {
+  const garden = await loadGarden(userId);
+  return garden.nodes.filter((n) => n.status === "bloom" && now - (n.last_verified_at ?? now) > STALE_MS);
 }
 
 function clamp01(n: number): number {
   if (Number.isNaN(n)) return 0;
   return Math.max(0, Math.min(1, n));
-}
-
-function defaultNote(status: NodeStatus): string {
-  if (status === "bloom") return "That's bloomed — you clearly get it.";
-  return "Almost there. One more pass and this one will bloom.";
 }

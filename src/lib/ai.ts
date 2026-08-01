@@ -31,6 +31,8 @@ export interface GenerateOptions {
   /** Ask the model to return a single JSON object. */
   json?: boolean;
   temperature?: number;
+  /** Upper bound on the response length; teaching needs room to be thorough. */
+  maxTokens?: number;
 }
 
 export interface GenerateResult {
@@ -58,6 +60,7 @@ async function callGemini(opts: GenerateOptions): Promise<string> {
     contents,
     generationConfig: {
       temperature: opts.temperature ?? 0.7,
+      ...(opts.maxTokens ? { maxOutputTokens: opts.maxTokens } : {}),
       ...(opts.json ? { responseMimeType: "application/json" } : {}),
     },
   };
@@ -124,6 +127,7 @@ async function callOpenRouter(opts: GenerateOptions): Promise<string> {
       models, // OpenRouter auto-falls-back through this list on error/rate-limit
       messages,
       temperature: opts.temperature ?? 0.7,
+      ...(opts.maxTokens ? { max_tokens: opts.maxTokens } : {}),
     }),
   });
 
@@ -156,7 +160,6 @@ export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
       return { text, provider: "gemini" };
     } catch (err) {
       if (!(err instanceof ProviderUnavailable)) {
-        // A real Gemini error (bad request etc.) — still try OpenRouter as a safety net.
         console.warn("[ai] Gemini failed, falling back:", (err as Error).message);
       } else {
         console.info("[ai] Gemini unavailable, falling back to OpenRouter:", err.message);
@@ -164,8 +167,19 @@ export async function generate(opts: GenerateOptions): Promise<GenerateResult> {
     }
   }
 
-  const text = await callOpenRouter(opts);
-  return { text, provider: "openrouter" };
+  // Free models occasionally return an empty body or transient error — retry a
+  // couple of times before giving up.
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const text = await callOpenRouter(opts);
+      return { text, provider: "openrouter" };
+    } catch (err) {
+      lastErr = err;
+      console.warn(`[ai] OpenRouter attempt ${attempt + 1} failed:`, (err as Error).message);
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error("generation failed");
 }
 
 /** Parse a JSON object out of a model response, tolerating code fences / stray prose. */
