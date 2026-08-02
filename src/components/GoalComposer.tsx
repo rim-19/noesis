@@ -85,6 +85,13 @@ export function GoalComposer({
         </button>
       </div>
 
+      {/* nudge: a source is attached but there's no goal to plant it against */}
+      {(source.trim() || file) && !goal.trim() && (
+        <p className="mt-2 px-1 text-xs" style={{ color: "var(--blush)" }}>
+          ↑ Add a goal above, then press go to plant your source.
+        </p>
+      )}
+
       {/* bring your own source */}
       <div className="mt-2 px-1">
         <button
